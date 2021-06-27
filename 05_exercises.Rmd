@@ -14,7 +14,7 @@ output:
 
 
 ```{r setup, include=FALSE}
-#knitr::opts_chunk$set(echo = TRUE, error=TRUE, message=FALSE, warning=FALSE)
+knitr::opts_chunk$set(echo = TRUE, error=TRUE, message=FALSE, warning=FALSE)
 ```
 
 ```{r libraries}
@@ -169,11 +169,11 @@ small_trains %>%
                     transition_length = 1.5, 
                     state_length = 1) 
 
-anim_save("late_trains_year")
+anim_save("late_trains_year.gif")
 ```
 
 ```{r}
-knitr::include_graphics("late_trains_year")
+knitr::include_graphics("late_trains_year.gif")
 ```
 
 
@@ -224,7 +224,7 @@ anim_save("cum_tomato_weight.gif")
 ```
 
 ```{r}
-knitr::include_graphics("cum_tomato_weight")
+knitr::include_graphics("cum_tomato_weight.gif")
 ```
 
 ## Maps, animation, and movement!
@@ -251,7 +251,9 @@ mallorca_bike_ride <- ggmap(mallorca_map) +
              size = 1) +
   annotate("point", x = 2.586352, y = 39.66012, color = "red") +
   transition_reveal(time) +
-  labs(title = "Biking in Mallorca") +
+  labs(title = "Biking in Mallorca",
+       subtitle = "Time: {frame_along}",
+       color = "Elevation") +
   scale_color_viridis_c(option = "magma") +
   theme_map() +
   theme(legend.background = element_blank())
@@ -259,12 +261,14 @@ mallorca_bike_ride <- ggmap(mallorca_map) +
 animate(mallorca_bike_ride, nframes = 100,
         duration = 8, renderer = gifski_renderer())
 
-anim_save("mallorca_bike_ride_gif")
+anim_save("mallorca_bike_ride.gif")
 ```
  
 ```{r}
-knitr::include_graphics("mallorca_bike_ride_gif")
+knitr::include_graphics("mallorca_bike_ride.gif")
 ```
+
+> I like this map better than the static one because it is more interactive and gives you more to look at.
 
   5. In this exercise, you get to meet my sister, Heather! She is a proud Mac grad, currently works as a Data Scientist at 3M where she uses R everyday, and for a few years (while still holding a full-time job) she was a pro triathlete. You are going to map one of her races. The data from each discipline of the Ironman 70.3 Pan Am championships, Panama is in a separate file - `panama_swim`, `panama_bike`, and `panama_run`. Create a similar map to the one you created with my cycling data. You will need to make some small changes: 1. combine the files (HINT: `bind_rows()`, 2. make the leading dot a different color depending on the event (for an extra challenge, make it a different image using `geom_image()!), 3. CHALLENGE (optional): color by speed, which you will need to compute on your own from the data. You can read Heather's race report [here](https://heatherlendway.com/2016/02/10/ironman-70-3-pan-american-championships-panama-race-report/). She is also in the Macalester Athletics [Hall of Fame](https://athletics.macalester.edu/honors/hall-of-fame/heather-lendway/184) and still has records at the pool. 
   
@@ -300,12 +304,12 @@ panama_race <- ggmap(panama_map) +
 animate(panama_race, nframes = 100,
         duration = 8, renderer = gifski_renderer())
 
-anim_save("panama_race_gif")
+anim_save("panama_race.gif")
 
 ```
 
 ```{r}
-knitr::include_graphics("panama_race_gif")
+knitr::include_graphics("panama_race.gif")
 ```
   
 ## COVID-19 data
@@ -318,7 +322,7 @@ knitr::include_graphics("panama_race_gif")
   * Use the `animate()` function to have 200 frames in your animation and make it 30 seconds long. 
   * Comment on what you observe.
   
-```{r}
+```{r, eval=FALSE}
 covid_cases <- covid19 %>%
   group_by(state) %>%
   mutate(weekly_cases = replace_na(lag(cases,n = 7), 0)) %>%
@@ -341,14 +345,15 @@ covid_cases <- covid19 %>%
 animate(covid_cases, nframes = 200,
         duration = 30, renderer = gifski_renderer())
 
-anim_save("covid_gif")
+anim_save("covid.gif")
   
 ```
   
 ```{r}
-knitr::include_graphics("covid_gif")
+knitr::include_graphics("covid.gif")
 ```
 
+> Originally New York has the most cases, but as time goes on, their level of cases gets surpassed by California and many southern states.
   
   7. In this exercise you will animate a map of the US, showing how cumulative COVID-19 cases per 10,000 residents has changed over time. This is similar to exercises 11 & 12 from the previous exercises, with the added animation! So, in the end, you should have something like the static map you made there, but animated over all the days. The code below gives the population estimates for each state and loads the `states_map` data. Here is a list of details you should include in the plot:
   
@@ -359,12 +364,21 @@ knitr::include_graphics("covid_gif")
   * Comment on what you see. 
   
 ```{r}
+census_pop_est_2018 <- read_csv("https://www.dropbox.com/s/6txwv3b4ng7pepe/us_census_2018_state_pop_est.csv?dl=1") %>% 
+  separate(state, into = c("dot","state"), extra = "merge") %>% 
+  select(-dot) %>% 
+  mutate(state = str_to_lower(state))
+
+states_map <- map_data("state")
+```  
+  
+```{r, eval=FALSE}
 states_map <- map_data("state")
 
-covid19 %>%
+covid_state_map <- covid19 %>%
+  complete(state, date = seq.Date(min(date), max(date), by = "day")) %>%
+  filter(wday(date, label = TRUE) == "Fri") %>%
   group_by(state) %>%
-  filter(date == max(date),
-         fridays = wday(date, label = TRUE) == "Fri") %>%
   mutate(state = str_to_lower(state)) %>%
   right_join(census_pop_est_2018,
             by = c("state")) %>% 
@@ -372,24 +386,26 @@ covid19 %>%
   ggplot +
   geom_map(map = states_map,
            aes(map_id = state,
-               fill = cases_per_10000)) +
+               fill = cases_per_10000,
+               group = date)) +
   expand_limits(x = states_map$long, y = states_map$lat) +
   theme_map() +
   labs(title = "Covid Cases per 10,000 Citizens",
-       fill = "Cases")
+       subtitle = "Date: {closest_state}",
+       fill = "Cases") +
+   scale_fill_gradient(low = "lightpink1", high = "violetred4", na.value = "thistle2")  +
+  transition_states(date)
+ 
+animate(covid_state_map, nframes = 200, duration = 10, renderer = gifski_renderer()) 
+
+anim_save("covid_statemap.gif")
 ```
-
-
 
 ```{r}
-census_pop_est_2018 <- read_csv("https://www.dropbox.com/s/6txwv3b4ng7pepe/us_census_2018_state_pop_est.csv?dl=1") %>% 
-  separate(state, into = c("dot","state"), extra = "merge") %>% 
-  select(-dot) %>% 
-  mutate(state = str_to_lower(state))
-
-states_map <- map_data("state")
+knitr::include_graphics("covid_statemap.gif")
 ```
 
+> Originally almost all states had around the same amount of cases, but as time goes on, southern/Republican states tended to have more cases than northern/Democratic states
 ## Your first `shiny` app (for next week!)
 
 NOT DUE THIS WEEK! If any of you want to work ahead, this will be on next week's exercises.
