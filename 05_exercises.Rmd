@@ -8,6 +8,8 @@ output:
     toc_float: TRUE
     df_print: paged
     code_download: true
+    theme: journal
+    highlight: kate
 ---
 
 
@@ -185,8 +187,8 @@ knitr::include_graphics("late_trains_year")
 
 I have started the code for you below. The `complete()` function creates a row for all unique `date`/`variety` combinations. If a variety is not harvested on one of the harvest dates in the dataset, it is filled with a value of 0.
 
-```{r}
-garden_harvest %>% 
+```{r, eval=FALSE}
+cum_tomato_harvest<- garden_harvest %>% 
   filter(vegetable == "tomatoes") %>% 
   group_by(date, variety) %>% 
   summarize(daily_harvest_lb = sum(weight)*0.00220462) %>% 
@@ -194,11 +196,36 @@ garden_harvest %>%
   complete(variety, date, fill = list(daily_harvest_lb = 0)) %>%
   group_by(variety) %>%
   mutate(cum_harvest_lb = cumsum(daily_harvest_lb)*0.00220462) %>% 
-  ggplot(aes(x = date, y = cum_harvest_lb, color = fct_reorder(variety, cum_harvest_lb))) +
-  geom_area()
-  
+  ungroup() %>%
+  ggplot(aes(x = date, y = cum_harvest_lb, fill = fct_reorder(variety, cum_harvest_lb,.desc = TRUE))) +
+  geom_area() +
+  scale_fill_manual(values = c("volunteers" = "darkseagreen4",
+                                "Brandywine" = "tomato2",
+                                "Jet Star" = "tomato4",
+                                "Big Beef" = "brown3",
+                                "Old German" = "firebrick4",
+                                "Mortgage Lifter" = "darkgreen",
+                                "Black Krim" = "olivedrab4",
+                                "Cherokee Purple" = "firebrick",
+                                "grape" = "indianred4",
+                                "Amish Paste" = "springgreen4",
+                                "Bonny Best" = "orangered4",
+                                "Better Boy" = "chartreuse4")) +
+  labs(title = "Cumulative Weight of Tomatoes Over Time: Summer 2020 (lbs)",
+       y = "",
+       x = "",
+       fill = "Variety") +
+  transition_reveal(date) 
+
+animate(cum_tomato_harvest, nframes = 100, duration = 8,
+        renderer = gifski_renderer())
+
+anim_save("cum_tomato_weight.gif")
 ```
 
+```{r}
+knitr::include_graphics("cum_tomato_weight")
+```
 
 ## Maps, animation, and movement!
 
@@ -212,27 +239,73 @@ garden_harvest %>%
   * CHALLENGE: use the `ggimage` package and `geom_image` to add a bike image instead of a red point. You can use [this](https://raw.githubusercontent.com/llendway/animation_and_interactivity/master/bike.png) image. See [here](https://goodekat.github.io/presentations/2019-isugg-gganimate-spooky/slides.html#35) for an example. 
   * Add something of your own! And comment on if you prefer this to the static map and why or why not.
  
-```{r}
+```{r, eval=FALSE}
 mallorca_map <- get_stamenmap(
     bbox = c(left = 2.28 , bottom = 39.41, right = 3.03, top = 39.8), 
     maptype = "terrain",
-    zoom = 11
-)
-ggmap(mallorca_map) +
+    zoom = 11)
+
+mallorca_bike_ride <- ggmap(mallorca_map) +
   geom_path(data = mallorca_bike_day7 , 
              aes(x =  lon, y = lat, color = ele),
-             size = .5) +
+             size = 1) +
+  annotate("point", x = 2.586352, y = 39.66012, color = "red") +
+  transition_reveal(time) +
+  labs(title = "Biking in Mallorca") +
   scale_color_viridis_c(option = "magma") +
   theme_map() +
   theme(legend.background = element_blank())
+  
+animate(mallorca_bike_ride, nframes = 100,
+        duration = 8, renderer = gifski_renderer())
+
+anim_save("mallorca_bike_ride_gif")
 ```
  
+```{r}
+knitr::include_graphics("mallorca_bike_ride_gif")
+```
+
   5. In this exercise, you get to meet my sister, Heather! She is a proud Mac grad, currently works as a Data Scientist at 3M where she uses R everyday, and for a few years (while still holding a full-time job) she was a pro triathlete. You are going to map one of her races. The data from each discipline of the Ironman 70.3 Pan Am championships, Panama is in a separate file - `panama_swim`, `panama_bike`, and `panama_run`. Create a similar map to the one you created with my cycling data. You will need to make some small changes: 1. combine the files (HINT: `bind_rows()`, 2. make the leading dot a different color depending on the event (for an extra challenge, make it a different image using `geom_image()!), 3. CHALLENGE (optional): color by speed, which you will need to compute on your own from the data. You can read Heather's race report [here](https://heatherlendway.com/2016/02/10/ironman-70-3-pan-american-championships-panama-race-report/). She is also in the Macalester Athletics [Hall of Fame](https://athletics.macalester.edu/honors/hall-of-fame/heather-lendway/184) and still has records at the pool. 
   
-```{r}
-panama_swim %>% 
+```{r, eval=FALSE}
+panama_ironman <- panama_swim %>% 
 bind_rows(panama_bike) %>%
   bind_rows(panama_run)
+
+panama_map <- get_stamenmap(
+  bbox = c(left = -79.61, bottom = 8.88,
+           right = -79.45, top = 9.1),
+  maptype = "terrain",
+  zoom = 13)
+
+panama_race <- ggmap(panama_map) +
+  geom_path(data = panama_ironman , 
+             aes(x =  lon, y = lat, color = event),
+             size = 1.5) +
+  geom_point(data = panama_ironman , 
+             aes(x =  lon, y = lat, color = event),
+             size = 1.5) +
+  labs(title = "Panama Ironman Championships",
+       color = "Event",
+       x = "",
+       y = "") +
+  scale_color_manual(values = c("Swim" = "blue4",
+                               "Bike" = "darkgoldenrod3",
+                               "Run" = "red2")) +
+  transition_reveal(time)
+  theme_map() +
+  theme(legend.background = element_blank())
+  
+animate(panama_race, nframes = 100,
+        duration = 8, renderer = gifski_renderer())
+
+anim_save("panama_race_gif")
+
+```
+
+```{r}
+knitr::include_graphics("panama_race_gif")
 ```
   
 ## COVID-19 data
@@ -246,9 +319,36 @@ bind_rows(panama_bike) %>%
   * Comment on what you observe.
   
 ```{r}
+covid_cases <- covid19 %>%
+  group_by(state) %>%
+  mutate(weekly_cases = replace_na(lag(cases,n = 7), 0)) %>%
+  filter(weekly_cases >= 20) %>%
+  ggplot(aes(x = cases, y = weekly_cases, 
+             color = state, group = state)) +
+  geom_path() +
+  scale_x_log10(label = scales::comma) +
+  scale_y_log10(label = scales::comma) +
+  geom_point(size = 2) +
+  geom_text(aes(label = state), check_overlap = TRUE) +
+  transition_reveal(date) +
+  labs(title = "Trajectory of US Covid-19 Confirmed Cases",
+       subtitle = "Date: {frame_along}",
+       y = "Weekly Cases",
+       x = "Cases") +
+  theme(legend.position = "none") 
+  
+  
+animate(covid_cases, nframes = 200,
+        duration = 30, renderer = gifski_renderer())
 
+anim_save("covid_gif")
+  
 ```
   
+```{r}
+knitr::include_graphics("covid_gif")
+```
+
   
   7. In this exercise you will animate a map of the US, showing how cumulative COVID-19 cases per 10,000 residents has changed over time. This is similar to exercises 11 & 12 from the previous exercises, with the added animation! So, in the end, you should have something like the static map you made there, but animated over all the days. The code below gives the population estimates for each state and loads the `states_map` data. Here is a list of details you should include in the plot:
   
@@ -263,7 +363,8 @@ states_map <- map_data("state")
 
 covid19 %>%
   group_by(state) %>%
-  filter(date == max(date)) %>%
+  filter(date == max(date),
+         fridays = wday(date, label = TRUE) == "Fri") %>%
   mutate(state = str_to_lower(state)) %>%
   right_join(census_pop_est_2018,
             by = c("state")) %>% 
